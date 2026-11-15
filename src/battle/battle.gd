@@ -67,16 +67,20 @@ func enemies() -> Array[Unit]:
 	return field.units().filter(func(unit: Unit) -> bool: return unit.team == Unit.Team.ENEMY)
 
 
-## 主人公がそこでターンを終えると、次の敵ターンに攻撃されうるマスを返す。
-func threatened_hexes() -> Array[Vector2i]:
+## 主人公がそこでターンを終えると、次の敵ターンに enemy から攻撃されうるマスを返す。
+func threatened_hexes_by(enemy: Unit) -> Array[Vector2i]:
 	var result: Array[Vector2i] = []
-	for enemy in enemies():
-		for origin in field.reachable(enemy.position, AP_PER_TURN - AttackAction.COST):
-			for hex in Hex.neighbors(origin):
-				var standable := field.is_walkable(hex) or hex == player.position
-				if standable and not result.has(hex):
-					result.append(hex)
+	for origin in field.reachable(enemy.position, AP_PER_TURN - AttackAction.COST):
+		for hex in Hex.neighbors(origin):
+			var standable := field.is_walkable(hex) or hex == player.position
+			if standable and not result.has(hex):
+				result.append(hex)
 	return result
+
+
+## 主人公がいまの位置でターンを終えた場合に、enemy が次の手番で行うことの予定を返す。
+func plan_of(enemy: Unit) -> EnemyPlan:
+	return _enemy_ai.plan(self, enemy)
 
 
 func outcome() -> Outcome:

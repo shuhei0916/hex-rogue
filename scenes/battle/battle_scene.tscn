@@ -23,7 +23,7 @@ offset_top = 12.0
 offset_right = 216.0
 offset_bottom = 40.0
 
-[node name="ApLabel" type="Label" parent="Hud"]
+[node name="EnergyLabel" type="Label" parent="Hud"]
 offset_left = 16.0
 offset_top = 44.0
 offset_right = 416.0
@@ -45,13 +45,12 @@ offset_bottom = 172.0
 focus_mode = 0
 text = "やり直す"
 
-[node name="ModeButton" type="Button" parent="Hud"]
+[node name="IntentLabel" type="Label" parent="Hud"]
 offset_left = 16.0
-offset_top = 180.0
-offset_right = 216.0
-offset_bottom = 220.0
-focus_mode = 0
-text = "カード制に切替"
+offset_top = 184.0
+offset_right = 416.0
+offset_bottom = 212.0
+theme_override_colors/font_color = Color(1, 0.7, 0.2, 1)
 
 [node name="Hand" type="HBoxContainer" parent="Hud"]
 anchors_preset = 7

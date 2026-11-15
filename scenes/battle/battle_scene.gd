@@ -1,6 +1,6 @@
 class_name BattleScene
 extends Node2D
-## 1戦を表示し、クリックを主人公の行動に変える。
+## 1戦を表示し、手札のカードとクリックを主人公の行動に変える。
 
 ## 行動のアニメーションをすべて再生し終えた。
 signal animations_finished
@@ -9,10 +9,9 @@ const HEX_SIZE := 40.0
 ## 1マス歩くのにかける秒数。
 const STEP_TIME := 0.12
 
-## 起動前に入れておくとその戦闘を表示する。入れなければ既定の戦闘を始める。
-var battle: Battle
-## カード制の手番。null なら行動ポイント制。起動前に入れておくとその戦闘をカード制で表示する。
+## 表示する戦闘の、主人公の手番。起動前に入れておく。入れなければ既定の戦闘を始める。
 var card_turn: CardTurn
+var battle: Battle
 var selected_card: Card
 ## false にすると行動の結果をアニメーションなしですぐ表示する。
 var animations_enabled := true
@@ -21,76 +20,64 @@ var is_animating := false
 
 var _animations: Array[Callable] = []
 var _views: Dictionary[Unit, UnitView] = {}
+var _hovered := Vector2i.ZERO
 
 @onready var _board: BoardView = $Board
 @onready var _units: Node2D = $Units
 @onready var _effects: Node2D = $Effects
-@onready var _ap_label: Label = $Hud/ApLabel
+@onready var _energy_label: Label = $Hud/EnergyLabel
 @onready var _turn_label: Label = $Hud/TurnLabel
+@onready var _intent_label: Label = $Hud/IntentLabel
 @onready var _result_label: Label = $Hud/ResultLabel
 @onready var _end_turn_button: Button = $Hud/EndTurnButton
-@onready var _mode_button: Button = $Hud/ModeButton
 @onready var _restart_button: Button = $Hud/RestartButton
 @onready var _hand: HBoxContainer = $Hud/Hand
 
 
-## 動作確認用の固定配置の戦闘を作る。
-static func create_default_battle() -> Battle:
+## 動作確認用の固定配置の戦闘を、試作用の初期デッキで始める。
+static func create_default_card_turn() -> CardTurn:
 	var field := Battlefield.hexagon(4)
 	for wall in [Vector2i(1, -2), Vector2i(1, 1), Vector2i(-2, 1)]:
 		field.set_terrain(wall, Battlefield.Terrain.WALL)
 	field.place_unit(Unit.new(Unit.Team.PLAYER, 12, 3), Vector2i(-3, 1))
 	for hex in [Vector2i(3, -3), Vector2i(4, -2), Vector2i(2, 2)]:
 		field.place_unit(Unit.new(Unit.Team.ENEMY, 5, 2), hex)
-	return Battle.new(field)
-
-
-## 試作用の初期デッキで、戦闘をカード制で進める手番を作る。
-static func create_card_turn(p_battle: Battle) -> CardTurn:
 	var rng := RandomNumberGenerator.new()
 	rng.randomize()
-	return CardTurn.new(p_battle, Deck.new(CardTurn.starter_cards(), rng))
+	return CardTurn.new(Battle.new(field), Deck.new(CardTurn.starter_cards(), rng))
 
 
 func _ready() -> void:
-	if card_turn != null:
-		battle = card_turn.battle
-	elif battle == null:
-		battle = create_default_battle()
-		card_turn = create_card_turn(battle)
 	_board.hex_size = HEX_SIZE
 	_end_turn_button.pressed.connect(end_turn)
-	_mode_button.pressed.connect(toggle_mode)
 	_restart_button.pressed.connect(restart)
-	_connect_battle()
-	_refresh()
+	_start(card_turn if card_turn != null else create_default_card_turn())
 
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion:
-		_board.hovered = Hex.from_pixel(get_global_mouse_position(), HEX_SIZE)
-		_board.queue_redraw()
+		hover_hex(Hex.from_pixel(get_global_mouse_position(), HEX_SIZE))
 	elif event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		click_hex(Hex.from_pixel(get_global_mouse_position(), HEX_SIZE))
 	elif event.is_action_pressed("ui_accept"):
 		end_turn()
 
 
-## マスを選んだときの操作。行動ポイント制では敵がいれば攻撃し、空いていれば移動する。
-## カード制では選んでいるカードをそのマスに使う。
+## マスを選んだときの操作。選んでいるカードをそのマスに使う。
 func click_hex(hex: Vector2i) -> void:
 	if is_animating:
 		return
-	if card_turn != null:
-		if selected_card != null and card_turn.play(selected_card, hex):
-			selected_card = null
-	else:
-		var target := battle.field.unit_at(hex)
-		if target != null:
-			battle.perform(AttackAction.new(battle.player, target))
-		else:
-			battle.perform(MoveAction.new(battle.player, hex))
+	if selected_card != null and card_turn.play(selected_card, hex):
+		selected_card = null
 	_show_result()
+
+
+## マウスがマスに乗ったときの操作。敵のいるマスなら、その敵の予定を示す。
+func hover_hex(hex: Vector2i) -> void:
+	_hovered = hex
+	_board.hovered = hex
+	_refresh_intent()
+	_board.queue_redraw()
 
 
 ## 手札のカードを選ぶ。選んでいるカードをもう一度選ぶと選択を外す。
@@ -98,12 +85,12 @@ func click_hex(hex: Vector2i) -> void:
 func select_card(card: Card) -> void:
 	if is_animating:
 		return
-	if card_turn != null and not card.needs_target():
+	if not card.needs_target():
 		selected_card = null
 		card_turn.play(card, battle.player.position)
 		_show_result()
 		return
-	var selectable := card_turn != null and card.cost <= card_turn.energy
+	var selectable := card.cost <= card_turn.energy
 	selected_card = card if selectable and selected_card != card else null
 	_refresh()
 
@@ -113,31 +100,15 @@ func end_turn() -> void:
 		return
 	if battle.outcome() == Battle.Outcome.ONGOING:
 		selected_card = null
-		if card_turn != null:
-			card_turn.end_turn()
-		else:
-			battle.end_turn()
+		card_turn.end_turn()
 	_show_result()
 
 
-## いまの方式のまま、既定の戦闘を最初から始める。
+## 既定の戦闘を最初から始める。
 func restart() -> void:
 	if is_animating:
 		return
-	var use_cards := card_turn != null
-	battle = create_default_battle()
-	card_turn = create_card_turn(battle) if use_cards else null
-	selected_card = null
-	_connect_battle()
-	_refresh()
-
-
-## 行動ポイント制とカード制を切り替えて、戦闘を最初から始める。
-func toggle_mode() -> void:
-	if is_animating:
-		return
-	card_turn = null if card_turn != null else create_card_turn(battle)
-	restart()
+	_start(create_default_card_turn())
 
 
 ## ユニットの表示を返す。戦場にいなければ null。
@@ -145,10 +116,14 @@ func view_of(unit: Unit) -> UnitView:
 	return _views.get(unit)
 
 
-func _connect_battle() -> void:
+func _start(p_card_turn: CardTurn) -> void:
+	card_turn = p_card_turn
+	battle = card_turn.battle
+	selected_card = null
 	battle.unit_moved.connect(_on_unit_moved)
 	battle.unit_attacked.connect(_on_unit_attacked)
 	battle.unit_died.connect(_on_unit_died)
+	_refresh()
 
 
 func _on_unit_moved(unit: Unit, path: Array[Vector2i]) -> void:
@@ -175,9 +150,10 @@ func _show_result() -> void:
 		return
 	is_animating = true
 	_board.reachable.clear()
+	_refresh_intent()
 	_board.queue_redraw()
 	_refresh_hand(false)
-	for button: Button in [_end_turn_button, _mode_button, _restart_button]:
+	for button: Button in [_end_turn_button, _restart_button]:
 		button.disabled = true
 	while not _animations.is_empty():
 		await _animations.pop_front().call()
@@ -236,33 +212,53 @@ func _refresh() -> void:
 	var ongoing := battle.outcome() == Battle.Outcome.ONGOING
 	_board.field = battle.field
 	_board.reachable.clear()
-	_board.threatened.clear()
 	if ongoing:
 		_board.reachable = battle.field.reachable(battle.player.position, _move_range())
-		_board.threatened = battle.threatened_hexes()
+	_refresh_intent()
 	_board.queue_redraw()
 	_refresh_hand(ongoing)
-	if card_turn != null:
-		_ap_label.text = "マナ: %d / %d (山札 %d / 捨て札 %d)" % [
-			card_turn.energy, CardTurn.ENERGY_PER_TURN,
-			card_turn.deck.draw_pile.size(), card_turn.deck.discard_pile.size(),
-		]
-		_mode_button.text = "行動ポイント制に切替"
-	else:
-		_ap_label.text = "行動ポイント: %d / %d" % [battle.ap, Battle.AP_PER_TURN]
-		_mode_button.text = "カード制に切替"
+	_energy_label.text = "マナ: %d / %d (山札 %d / 捨て札 %d)" % [
+		card_turn.energy, CardTurn.ENERGY_PER_TURN,
+		card_turn.deck.draw_pile.size(), card_turn.deck.discard_pile.size(),
+	]
 	_turn_label.text = "ターン %d" % battle.turn
 	_end_turn_button.disabled = not ongoing
-	_mode_button.disabled = false
 	_restart_button.disabled = false
 	_result_label.visible = not ongoing
 	_result_label.text = "勝利" if battle.outcome() == Battle.Outcome.VICTORY else "敗北"
 
 
-## いま主人公が歩ける歩数。カード制では選んでいる移動カードの歩数になる。
+## マウスを乗せている敵の、攻撃されうるマスと次の手番の予定を盤面と文に出す。
+func _refresh_intent() -> void:
+	_board.threatened.clear()
+	_board.plan_path.clear()
+	_board.plan_attacks = false
+	_intent_label.text = ""
+	if is_animating or battle.outcome() != Battle.Outcome.ONGOING:
+		return
+	var enemy := battle.field.unit_at(_hovered)
+	if enemy == null or enemy.team != Unit.Team.ENEMY:
+		return
+	var plan := battle.plan_of(enemy)
+	_board.threatened = battle.threatened_hexes_by(enemy)
+	_board.plan_path = plan.path
+	_board.plan_attacks = plan.attacks
+	_board.plan_target = battle.player.position
+	_intent_label.text = "敵の予定: " + _describe(plan, enemy)
+
+
+func _describe(plan: EnemyPlan, enemy: Unit) -> String:
+	var steps := plan.path.size() - 1
+	var attack := "攻撃（%dダメージ）" % enemy.attack_power
+	if steps > 0 and plan.attacks:
+		return "%dマス移動して%s" % [steps, attack]
+	if steps > 0:
+		return "%dマス移動" % steps
+	return attack if plan.attacks else "動かない"
+
+
+## いま主人公が歩ける歩数。選んでいる移動カードの歩数になる。
 func _move_range() -> int:
-	if card_turn == null:
-		return battle.ap
 	if selected_card != null and selected_card.kind == Card.Kind.MOVE:
 		return selected_card.value
 	return 0
@@ -272,8 +268,6 @@ func _refresh_hand(ongoing: bool) -> void:
 	for button in _hand.get_children():
 		_hand.remove_child(button)
 		button.queue_free()
-	if card_turn == null:
-		return
 	for card in card_turn.deck.hand:
 		var button := Button.new()
 		button.text = "%s (%d)\n%s" % [card.title, card.cost, card.description()]

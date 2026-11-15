@@ -5,6 +5,8 @@ const BattleSceneScene := preload("res://scenes/battle/battle_scene.tscn")
 var field: Battlefield
 var player: Unit
 var enemy: Unit
+var move_card: Card
+var attack_card: Card
 var scene: BattleScene
 
 
@@ -14,9 +16,22 @@ func before_each():
 	enemy = Unit.new(Unit.Team.ENEMY, 5, 2)
 	field.place_unit(player, Vector2i(0, 0))
 	field.place_unit(enemy, Vector2i(1, 0))
+	move_card = Card.new("歩く", Card.Kind.MOVE, 2)
+	attack_card = Card.new("斬る", Card.Kind.ATTACK, 3)
+	var cards: Array[Card] = [move_card, attack_card, Card.new("歩く", Card.Kind.MOVE, 2)]
 	scene = BattleSceneScene.instantiate()
-	scene.battle = Battle.new(field)
+	scene.card_turn = CardTurn.new(Battle.new(field), Deck.new(cards, RandomNumberGenerator.new()))
 	add_child_autofree(scene)
+
+
+func _move_to(hex: Vector2i) -> void:
+	scene.select_card(move_card)
+	scene.click_hex(hex)
+
+
+func _attack(hex: Vector2i) -> void:
+	scene.select_card(attack_card)
+	scene.click_hex(hex)
 
 
 func _pixel(hex: Vector2i) -> Vector2:
@@ -28,14 +43,14 @@ func test_何もしていなければアニメーション中ではない():
 
 
 func test_移動した直後はアニメーション中で表示はまだ元の位置にある():
-	scene.click_hex(Vector2i(0, 2))
+	_move_to(Vector2i(0, 2))
 
 	assert_true(scene.is_animating)
 	assert_eq(scene.view_of(player).position, _pixel(Vector2i(0, 0)))
 
 
 func test_移動のアニメーションが終わると表示は移動先にある():
-	scene.click_hex(Vector2i(0, 2))
+	_move_to(Vector2i(0, 2))
 
 	await wait_for_signal(scene.animations_finished, 3)
 
@@ -44,8 +59,9 @@ func test_移動のアニメーションが終わると表示は移動先にあ�
 
 
 func test_アニメーション中のクリックは無視する():
-	scene.click_hex(Vector2i(0, 2))
+	_move_to(Vector2i(0, 2))
 
+	scene.select_card(scene.card_turn.deck.hand[0])
 	scene.click_hex(Vector2i(0, 1))
 	await wait_for_signal(scene.animations_finished, 3)
 
@@ -53,7 +69,7 @@ func test_アニメーション中のクリックは無視する():
 
 
 func test_アニメーション中はターンを終えられない():
-	scene.click_hex(Vector2i(0, 2))
+	_move_to(Vector2i(0, 2))
 
 	scene.end_turn()
 
@@ -62,7 +78,7 @@ func test_アニメーション中はターンを終えられない():
 
 
 func test_アニメーションが終わるとターン終了ボタンが押せる():
-	scene.click_hex(Vector2i(0, 2))
+	_move_to(Vector2i(0, 2))
 
 	await wait_for_signal(scene.animations_finished, 3)
 
@@ -70,7 +86,7 @@ func test_アニメーションが終わるとターン終了ボタンが押せ�
 
 
 func test_攻撃のアニメーションが終わるとHPの表示が減り攻撃側は元の位置に戻る():
-	scene.click_hex(Vector2i(1, 0))
+	_attack(Vector2i(1, 0))
 
 	await wait_for_signal(scene.animations_finished, 3)
 
@@ -81,7 +97,7 @@ func test_攻撃のアニメーションが終わるとHPの表示が減り攻�
 func test_倒した敵の表示はアニメーションが終わるまで残りその後消える():
 	enemy.take_damage(3)
 
-	scene.click_hex(Vector2i(1, 0))
+	_attack(Vector2i(1, 0))
 
 	assert_not_null(scene.view_of(enemy))
 	await wait_for_signal(scene.animations_finished, 3)

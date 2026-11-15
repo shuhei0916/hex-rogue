@@ -89,7 +89,7 @@ func test_主人公が倒れると敗北し残りの敵は行動しない():
 func test_敵の隣は次の敵ターンに攻撃されうるマス():
 	_start_with_enemy_at(Vector2i(3, 0))
 
-	var threatened := battle.threatened_hexes()
+	var threatened := battle.threatened_hexes_by(enemy)
 
 	assert_has(threatened, Vector2i(2, 0))
 
@@ -97,7 +97,7 @@ func test_敵の隣は次の敵ターンに攻撃されうるマス():
 func test_敵が1歩動いてから攻撃できるマスも攻撃されうる():
 	_start_with_enemy_at(Vector2i(3, 0))
 
-	var threatened := battle.threatened_hexes()
+	var threatened := battle.threatened_hexes_by(enemy)
 
 	assert_has(threatened, Vector2i(1, 0))
 	assert_does_not_have(threatened, Vector2i(-1, 0))
@@ -107,7 +107,7 @@ func test_壁と敵自身のいるマスは攻撃されうるマスに含まな�
 	field.set_terrain(Vector2i(2, 0), Battlefield.Terrain.WALL)
 	_start_with_enemy_at(Vector2i(3, 0))
 
-	var threatened := battle.threatened_hexes()
+	var threatened := battle.threatened_hexes_by(enemy)
 
 	assert_does_not_have(threatened, Vector2i(2, 0))
 	assert_does_not_have(threatened, Vector2i(3, 0))
@@ -116,7 +116,7 @@ func test_壁と敵自身のいるマスは攻撃されうるマスに含まな�
 func test_主人公のいるマスも攻撃されうるなら含む():
 	_start_with_enemy_at(Vector2i(2, 0))
 
-	assert_has(battle.threatened_hexes(), Vector2i(0, 0))
+	assert_has(battle.threatened_hexes_by(enemy), Vector2i(0, 0))
 
 
 func test_ブロックは敵ターンの攻撃を防ぐ():
@@ -135,3 +135,61 @@ func test_使い残したブロックは次の自分のターンの開始時に�
 	battle.end_turn()
 
 	assert_eq(player.block, 0)
+
+
+func test_攻撃されうるマスは敵ごとに求める():
+	var another := Unit.new(Unit.Team.ENEMY, 5, 2)
+	field.place_unit(another, Vector2i(-4, 0))
+	_start_with_enemy_at(Vector2i(4, 0))
+
+	var threatened := battle.threatened_hexes_by(enemy)
+
+	assert_has(threatened, Vector2i(3, 0))
+	assert_does_not_have(threatened, Vector2i(-3, 0))
+
+
+func test_隣接している敵の予定はその場での攻撃():
+	_start_with_enemy_at(Vector2i(1, 0))
+
+	var plan := battle.plan_of(enemy)
+
+	assert_eq(plan.path, [Vector2i(1, 0)])
+	assert_true(plan.attacks)
+
+
+func test_1歩で届く敵の予定は近づいて攻撃():
+	_start_with_enemy_at(Vector2i(2, 0))
+
+	var plan := battle.plan_of(enemy)
+
+	assert_eq(plan.path, [Vector2i(2, 0), Vector2i(1, 0)])
+	assert_true(plan.attacks)
+
+
+func test_遠い敵の予定は行動ポイントぶんの移動のみ():
+	_start_with_enemy_at(Vector2i(5, 0))
+
+	var plan := battle.plan_of(enemy)
+
+	assert_eq(plan.path.size(), 4)
+	assert_false(plan.attacks)
+
+
+func test_近づけない敵の予定は動かず攻撃もしない():
+	for hex in Hex.neighbors(Vector2i(0, 0)):
+		field.set_terrain(hex, Battlefield.Terrain.WALL)
+	_start_with_enemy_at(Vector2i(3, 0))
+
+	var plan := battle.plan_of(enemy)
+
+	assert_eq(plan.path, [Vector2i(3, 0)])
+	assert_false(plan.attacks)
+
+
+func test_敵は予定どおりの場所まで動く():
+	_start_with_enemy_at(Vector2i(4, -2))
+	var plan := battle.plan_of(enemy)
+
+	battle.end_turn()
+
+	assert_eq(enemy.position, plan.path.back())
