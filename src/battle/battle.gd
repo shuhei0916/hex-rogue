@@ -12,6 +12,8 @@ var acting_unit: Unit
 var ap: int
 var turn := 1
 
+var _enemy_ai := EnemyAi.new()
+
 
 func _init(p_field: Battlefield) -> void:
 	field = p_field
@@ -33,7 +35,14 @@ func perform(action: BattleAction) -> bool:
 	return true
 
 
+## 主人公の手番を終える。敵が順に行動し、次のターンの主人公の手番になる。
 func end_turn() -> void:
+	for enemy in enemies():
+		_start_turn_of(enemy)
+		while true:
+			var action := _enemy_ai.next_action(self, enemy)
+			if action == null or not perform(action):
+				break
 	turn += 1
 	_start_turn_of(player)
 
