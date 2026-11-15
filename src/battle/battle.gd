@@ -23,13 +23,23 @@ func _init(p_field: Battlefield) -> void:
 	_start_turn_of(player)
 
 
-## 行動を実行する。実行できなければ何もせず false を返す。
+## 行動ポイントを払って行動を実行する。実行できなければ何もせず false を返す。
 func perform(action: BattleAction) -> bool:
-	if outcome() != Outcome.ONGOING or action.actor != acting_unit:
+	if action == null:
 		return false
-	if not action.can_perform(self) or action.cost(self) > ap:
+	var cost := action.cost(self)
+	if cost > ap or not execute(action):
 		return false
-	ap -= action.cost(self)
+	ap -= cost
+	return true
+
+
+## 行動ポイントを使わずに行動を実行する。カードなど別の対価で行う行動に使う。
+func execute(action: BattleAction) -> bool:
+	if action == null or outcome() != Outcome.ONGOING or action.actor != acting_unit:
+		return false
+	if not action.can_perform(self):
+		return false
 	action.apply(self)
 	_remove_dead_units()
 	return true

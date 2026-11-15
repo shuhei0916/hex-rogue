@@ -1,15 +1,17 @@
 class_name AttackAction
 extends BattleAction
-## 隣接する敵対ユニットを殴り、攻撃力ぶんのダメージを与える。
+## 隣接する敵対ユニットを殴る。ダメージを指定しなければ攻撃力ぶんを与える。
 
 const COST := 2
 
 var target: Unit
+var damage: int
 
 
-func _init(p_actor: Unit, p_target: Unit) -> void:
+func _init(p_actor: Unit, p_target: Unit, p_damage := -1) -> void:
 	actor = p_actor
 	target = p_target
+	damage = p_damage if p_damage >= 0 else p_actor.attack_power
 
 
 func cost(_battle: Battle) -> int:
@@ -25,4 +27,4 @@ func can_perform(_battle: Battle) -> bool:
 
 
 func apply(_battle: Battle) -> void:
-	target.take_damage(actor.attack_power)
+	target.take_damage(damage)
