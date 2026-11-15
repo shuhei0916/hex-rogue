@@ -84,3 +84,36 @@ func test_主人公が倒れると敗北し残りの敵は行動しない():
 
 	assert_eq(battle.outcome(), Battle.Outcome.DEFEAT)
 	assert_eq(another.position, Vector2i(4, 0))
+
+
+func test_敵の隣は次の敵ターンに攻撃されうるマス():
+	_start_with_enemy_at(Vector2i(3, 0))
+
+	var threatened := battle.threatened_hexes()
+
+	assert_has(threatened, Vector2i(2, 0))
+
+
+func test_敵が1歩動いてから攻撃できるマスも攻撃されうる():
+	_start_with_enemy_at(Vector2i(3, 0))
+
+	var threatened := battle.threatened_hexes()
+
+	assert_has(threatened, Vector2i(1, 0))
+	assert_does_not_have(threatened, Vector2i(-1, 0))
+
+
+func test_壁と敵自身のいるマスは攻撃されうるマスに含まない():
+	field.set_terrain(Vector2i(2, 0), Battlefield.Terrain.WALL)
+	_start_with_enemy_at(Vector2i(3, 0))
+
+	var threatened := battle.threatened_hexes()
+
+	assert_does_not_have(threatened, Vector2i(2, 0))
+	assert_does_not_have(threatened, Vector2i(3, 0))
+
+
+func test_主人公のいるマスも攻撃されうるなら含む():
+	_start_with_enemy_at(Vector2i(2, 0))
+
+	assert_has(battle.threatened_hexes(), Vector2i(0, 0))

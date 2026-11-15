@@ -51,6 +51,18 @@ func enemies() -> Array[Unit]:
 	return field.units().filter(func(unit: Unit) -> bool: return unit.team == Unit.Team.ENEMY)
 
 
+## 主人公がそこでターンを終えると、次の敵ターンに攻撃されうるマスを返す。
+func threatened_hexes() -> Array[Vector2i]:
+	var result: Array[Vector2i] = []
+	for enemy in enemies():
+		for origin in field.reachable(enemy.position, AP_PER_TURN - AttackAction.COST):
+			for hex in Hex.neighbors(origin):
+				var standable := field.is_walkable(hex) or hex == player.position
+				if standable and not result.has(hex):
+					result.append(hex)
+	return result
+
+
 func outcome() -> Outcome:
 	if not player.is_alive():
 		return Outcome.DEFEAT
