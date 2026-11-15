@@ -30,6 +30,7 @@ func test_戦闘を渡さずに起動すると既定の戦闘が始まる():
 	add_child_autofree(default_scene)
 
 	assert_not_null(default_scene.battle)
+	assert_not_null(default_scene.card_turn)
 	assert_eq(default_scene.battle.outcome(), Battle.Outcome.ONGOING)
 	assert_gt(default_scene.get_node("Units").get_child_count(), 1)
 

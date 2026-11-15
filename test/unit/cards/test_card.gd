@@ -61,6 +61,22 @@ func test_コストを指定しなければ1になる():
 	assert_eq(Card.new("走る", Card.Kind.MOVE, 4, 2).cost, 2)
 
 
+func test_防御カードは値ぶんのブロックを得る():
+	var card := Card.new("守る", Card.Kind.BLOCK, 4)
+
+	var blocked := battle.execute(card.create_action(player, field, player.position))
+
+	assert_true(blocked)
+	assert_eq(player.block, 4)
+
+
+func test_防御カードは対象を選ばない():
+	assert_false(Card.new("守る", Card.Kind.BLOCK, 4).needs_target())
+	assert_true(Card.new("歩く", Card.Kind.MOVE, 2).needs_target())
+	assert_true(Card.new("斬る", Card.Kind.ATTACK, 3).needs_target())
+
+
 func test_カードの説明は種類と値を表す():
+	assert_eq(Card.new("守る", Card.Kind.BLOCK, 4).description(), "防御 4")
 	assert_eq(Card.new("強打", Card.Kind.ATTACK, 5).description(), "攻撃 5")
 	assert_eq(Card.new("疾走", Card.Kind.MOVE, 3).description(), "移動 3")

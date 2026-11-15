@@ -124,3 +124,29 @@ func test_ターン終了で手札を引き直す():
 
 	assert_eq(_hand().get_child_count(), 4)
 	assert_eq(scene.battle.turn, 2)
+
+
+func test_対象を選ばないカードは選んだ時点で使う():
+	var block_card := Card.new("守る", Card.Kind.BLOCK, 4)
+	deck.hand.append(block_card)
+
+	scene.select_card(block_card)
+
+	assert_eq(player.block, 4)
+	assert_null(scene.selected_card)
+	assert_does_not_have(deck.hand, block_card)
+
+
+func test_ブロックがあるユニットにはその値を表示する():
+	var block_card := Card.new("守る", Card.Kind.BLOCK, 4)
+	deck.hand.append(block_card)
+
+	scene.select_card(block_card)
+
+	var label: Label = scene.view_of(player).get_node("BlockLabel")
+	assert_true(label.visible)
+	assert_eq(label.text, "4")
+
+
+func test_ブロックがないユニットにはブロックを表示しない():
+	assert_false(scene.view_of(player).get_node("BlockLabel").visible)

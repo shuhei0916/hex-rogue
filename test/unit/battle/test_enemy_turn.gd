@@ -117,3 +117,21 @@ func test_主人公のいるマスも攻撃されうるなら含む():
 	_start_with_enemy_at(Vector2i(2, 0))
 
 	assert_has(battle.threatened_hexes(), Vector2i(0, 0))
+
+
+func test_ブロックは敵ターンの攻撃を防ぐ():
+	_start_with_enemy_at(Vector2i(1, 0))
+	player.gain_block(4)
+
+	battle.end_turn()
+
+	assert_eq(player.hp, 10)
+
+
+func test_使い残したブロックは次の自分のターンの開始時に消える():
+	_start_with_enemy_at(Vector2i(1, 0))
+	player.gain_block(4)
+
+	battle.end_turn()
+
+	assert_eq(player.block, 0)

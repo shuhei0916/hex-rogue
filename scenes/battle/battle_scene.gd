@@ -57,6 +57,7 @@ func _ready() -> void:
 		battle = card_turn.battle
 	elif battle == null:
 		battle = create_default_battle()
+		card_turn = create_card_turn(battle)
 	_board.hex_size = HEX_SIZE
 	_end_turn_button.pressed.connect(end_turn)
 	_mode_button.pressed.connect(toggle_mode)
@@ -93,8 +94,14 @@ func click_hex(hex: Vector2i) -> void:
 
 
 ## 手札のカードを選ぶ。選んでいるカードをもう一度選ぶと選択を外す。
+## マスを選ぶ必要のないカードは、選んだ時点で使う。
 func select_card(card: Card) -> void:
 	if is_animating:
+		return
+	if card_turn != null and not card.needs_target():
+		selected_card = null
+		card_turn.play(card, battle.player.position)
+		_show_result()
 		return
 	var selectable := card_turn != null and card.cost <= card_turn.energy
 	selected_card = card if selectable and selected_card != card else null
@@ -148,8 +155,12 @@ func _on_unit_moved(unit: Unit, path: Array[Vector2i]) -> void:
 	_animations.append(_animate_move.bind(_views[unit], path))
 
 
-func _on_unit_attacked(attacker: Unit, target: Unit, damage: int, hp_after: int) -> void:
-	_animations.append(_animate_attack.bind(_views[attacker], _views[target], damage, hp_after))
+func _on_unit_attacked(
+	attacker: Unit, target: Unit, damage: int, hp_after: int, block_after: int
+) -> void:
+	_animations.append(
+		_animate_attack.bind(_views[attacker], _views[target], damage, hp_after, block_after)
+	)
 
 
 func _on_unit_died(unit: Unit) -> void:
@@ -183,12 +194,15 @@ func _animate_move(view: UnitView, path: Array[Vector2i]) -> void:
 
 
 ## 相手に向かって踏み込み、当たった瞬間にHPの表示を減らして元の位置に戻る。
-func _animate_attack(attacker: UnitView, target: UnitView, damage: int, hp_after: int) -> void:
+func _animate_attack(
+	attacker: UnitView, target: UnitView, damage: int, hp_after: int, block_after: int
+) -> void:
 	var origin := attacker.position
 	var lunge := create_tween()
 	lunge.tween_property(attacker, "position", origin.lerp(target.position, 0.4), 0.08)
 	await lunge.finished
 	target.show_hp(hp_after)
+	target.show_block(block_after)
 	_spawn_damage_number(target.position, damage)
 	target.modulate = Color(2.5, 2.5, 2.5)
 	var recover := create_tween().set_parallel()
@@ -203,10 +217,10 @@ func _animate_death(view: UnitView) -> void:
 	await tween.finished
 
 
-## ダメージの数字を出す。浮かび上がりながら消える。
+## ダメージの数字を出す。浮かび上がりながら消える。ブロックで防ぎきったら「防御」と出す。
 func _spawn_damage_number(at: Vector2, damage: int) -> void:
 	var label := Label.new()
-	label.text = "-%d" % damage
+	label.text = "-%d" % damage if damage > 0 else "防御"
 	label.position = at + Vector2(-12.0, -52.0)
 	label.add_theme_font_size_override("font_size", 24)
 	label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3))

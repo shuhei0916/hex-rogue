@@ -93,8 +93,9 @@ func test_ターンを終えると手札を捨てて引き直しマナが回復�
 	assert_ne(enemy.position, Vector2i(5, 0))
 
 
-func test_初期デッキは移動と攻撃の両方を含む():
+func test_初期デッキは移動と攻撃と防御を含む():
 	var kinds := CardTurn.starter_cards().map(func(card: Card) -> Card.Kind: return card.kind)
 
 	assert_has(kinds, Card.Kind.MOVE)
 	assert_has(kinds, Card.Kind.ATTACK)
+	assert_has(kinds, Card.Kind.BLOCK)

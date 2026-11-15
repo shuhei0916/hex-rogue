@@ -23,10 +23,18 @@ func test_移動すると通った経路つきで知らせる():
 	assert_signal_emitted_with_parameters(battle, "unit_moved", [player, expected_path])
 
 
-func test_攻撃するとダメージと攻撃後のHPつきで知らせる():
+func test_攻撃すると減らしたHPと攻撃後のHPとブロックつきで知らせる():
 	battle.perform(AttackAction.new(player, enemy))
 
-	assert_signal_emitted_with_parameters(battle, "unit_attacked", [player, enemy, 3, 2])
+	assert_signal_emitted_with_parameters(battle, "unit_attacked", [player, enemy, 3, 2, 0])
+
+
+func test_ブロックで防がれた攻撃は減らしたHPを0として知らせる():
+	enemy.gain_block(5)
+
+	battle.perform(AttackAction.new(player, enemy))
+
+	assert_signal_emitted_with_parameters(battle, "unit_attacked", [player, enemy, 0, 5, 2])
 
 
 func test_倒すと死亡を知らせる():
@@ -52,4 +60,4 @@ func test_実行できなかった行動は知らせない():
 func test_敵ターンの行動も知らせる():
 	battle.end_turn()
 
-	assert_signal_emitted_with_parameters(battle, "unit_attacked", [enemy, player, 2, 8])
+	assert_signal_emitted_with_parameters(battle, "unit_attacked", [enemy, player, 2, 8, 0])

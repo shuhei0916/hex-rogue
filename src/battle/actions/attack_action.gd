@@ -27,5 +27,5 @@ func can_perform(_battle: Battle) -> bool:
 
 
 func apply(battle: Battle) -> void:
-	target.take_damage(damage)
-	battle.unit_attacked.emit(actor, target, damage, target.hp)
+	var lost := target.take_damage(damage)
+	battle.unit_attacked.emit(actor, target, lost, target.hp, target.block)

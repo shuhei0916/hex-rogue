@@ -4,8 +4,8 @@ extends RefCounted
 
 ## ユニットが path（出発マスと到着マスを含む）をたどって移動した。
 signal unit_moved(unit: Unit, path: Array[Vector2i])
-## attacker が target に damage を与え、target のHPが hp_after になった。
-signal unit_attacked(attacker: Unit, target: Unit, damage: int, hp_after: int)
+## attacker が target を攻撃してHPを damage 減らし、target のHPが hp_after、ブロックが block_after になった。
+signal unit_attacked(attacker: Unit, target: Unit, damage: int, hp_after: int, block_after: int)
 signal unit_died(unit: Unit)
 
 enum Outcome { ONGOING, VICTORY, DEFEAT }
@@ -89,6 +89,7 @@ func outcome() -> Outcome:
 
 func _start_turn_of(unit: Unit) -> void:
 	acting_unit = unit
+	unit.block = 0
 	ap = AP_PER_TURN
 
 
