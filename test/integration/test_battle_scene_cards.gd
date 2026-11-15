@@ -26,6 +26,7 @@ func before_each():
 	deck = Deck.new(cards, RandomNumberGenerator.new())
 	scene = BattleSceneScene.instantiate()
 	scene.card_turn = CardTurn.new(Battle.new(field), deck)
+	scene.animations_enabled = false
 	add_child_autofree(scene)
 
 

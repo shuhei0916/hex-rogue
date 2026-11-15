@@ -25,8 +25,13 @@ func _init() -> void:
 ## ユニットの現在の位置とHPを表示に反映する。
 func refresh(hex_size: float) -> void:
 	position = Hex.to_pixel(unit.position, hex_size)
-	_hp_label.text = str(unit.hp)
+	modulate = Color.WHITE
+	show_hp(unit.hp)
 	queue_redraw()
+
+
+func show_hp(hp: int) -> void:
+	_hp_label.text = str(hp)
 
 
 func _draw() -> void:

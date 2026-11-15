@@ -16,6 +16,7 @@ func before_each():
 	field.place_unit(enemy, Vector2i(3, 0))
 	scene = BattleSceneScene.instantiate()
 	scene.battle = Battle.new(field)
+	scene.animations_enabled = false
 	add_child_autofree(scene)
 
 

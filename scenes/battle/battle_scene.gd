@@ -2,18 +2,29 @@ class_name BattleScene
 extends Node2D
 ## 1戦を表示し、クリックを主人公の行動に変える。
 
+## 行動のアニメーションをすべて再生し終えた。
+signal animations_finished
+
 const HEX_SIZE := 40.0
+## 1マス歩くのにかける秒数。
+const STEP_TIME := 0.12
 
 ## 起動前に入れておくとその戦闘を表示する。入れなければ既定の戦闘を始める。
 var battle: Battle
 ## カード制の手番。null なら行動ポイント制。起動前に入れておくとその戦闘をカード制で表示する。
 var card_turn: CardTurn
 var selected_card: Card
+## false にすると行動の結果をアニメーションなしですぐ表示する。
+var animations_enabled := true
+## アニメーションの再生中。このあいだは操作を受け付けない。
+var is_animating := false
 
+var _animations: Array[Callable] = []
 var _views: Dictionary[Unit, UnitView] = {}
 
 @onready var _board: BoardView = $Board
 @onready var _units: Node2D = $Units
+@onready var _effects: Node2D = $Effects
 @onready var _ap_label: Label = $Hud/ApLabel
 @onready var _turn_label: Label = $Hud/TurnLabel
 @onready var _result_label: Label = $Hud/ResultLabel
@@ -50,6 +61,7 @@ func _ready() -> void:
 	_end_turn_button.pressed.connect(end_turn)
 	_mode_button.pressed.connect(toggle_mode)
 	_restart_button.pressed.connect(restart)
+	_connect_battle()
 	_refresh()
 
 
@@ -66,6 +78,8 @@ func _unhandled_input(event: InputEvent) -> void:
 ## マスを選んだときの操作。行動ポイント制では敵がいれば攻撃し、空いていれば移動する。
 ## カード制では選んでいるカードをそのマスに使う。
 func click_hex(hex: Vector2i) -> void:
+	if is_animating:
+		return
 	if card_turn != null:
 		if selected_card != null and card_turn.play(selected_card, hex):
 			selected_card = null
@@ -75,37 +89,46 @@ func click_hex(hex: Vector2i) -> void:
 			battle.perform(AttackAction.new(battle.player, target))
 		else:
 			battle.perform(MoveAction.new(battle.player, hex))
-	_refresh()
+	_show_result()
 
 
 ## 手札のカードを選ぶ。選んでいるカードをもう一度選ぶと選択を外す。
 func select_card(card: Card) -> void:
+	if is_animating:
+		return
 	var selectable := card_turn != null and card.cost <= card_turn.energy
 	selected_card = card if selectable and selected_card != card else null
 	_refresh()
 
 
 func end_turn() -> void:
+	if is_animating:
+		return
 	if battle.outcome() == Battle.Outcome.ONGOING:
 		selected_card = null
 		if card_turn != null:
 			card_turn.end_turn()
 		else:
 			battle.end_turn()
-	_refresh()
+	_show_result()
 
 
 ## いまの方式のまま、既定の戦闘を最初から始める。
 func restart() -> void:
+	if is_animating:
+		return
 	var use_cards := card_turn != null
 	battle = create_default_battle()
 	card_turn = create_card_turn(battle) if use_cards else null
 	selected_card = null
+	_connect_battle()
 	_refresh()
 
 
 ## 行動ポイント制とカード制を切り替えて、戦闘を最初から始める。
 func toggle_mode() -> void:
+	if is_animating:
+		return
 	card_turn = null if card_turn != null else create_card_turn(battle)
 	restart()
 
@@ -113,6 +136,85 @@ func toggle_mode() -> void:
 ## ユニットの表示を返す。戦場にいなければ null。
 func view_of(unit: Unit) -> UnitView:
 	return _views.get(unit)
+
+
+func _connect_battle() -> void:
+	battle.unit_moved.connect(_on_unit_moved)
+	battle.unit_attacked.connect(_on_unit_attacked)
+	battle.unit_died.connect(_on_unit_died)
+
+
+func _on_unit_moved(unit: Unit, path: Array[Vector2i]) -> void:
+	_animations.append(_animate_move.bind(_views[unit], path))
+
+
+func _on_unit_attacked(attacker: Unit, target: Unit, damage: int, hp_after: int) -> void:
+	_animations.append(_animate_attack.bind(_views[attacker], _views[target], damage, hp_after))
+
+
+func _on_unit_died(unit: Unit) -> void:
+	_animations.append(_animate_death.bind(_views[unit]))
+
+
+## 行動の結果を画面に出す。起きた出来事があれば順にアニメーションしてから反映する。
+func _show_result() -> void:
+	if not animations_enabled or _animations.is_empty():
+		_animations.clear()
+		_refresh()
+		return
+	is_animating = true
+	_board.reachable.clear()
+	_board.queue_redraw()
+	_refresh_hand(false)
+	for button: Button in [_end_turn_button, _mode_button, _restart_button]:
+		button.disabled = true
+	while not _animations.is_empty():
+		await _animations.pop_front().call()
+	is_animating = false
+	_refresh()
+	animations_finished.emit()
+
+
+func _animate_move(view: UnitView, path: Array[Vector2i]) -> void:
+	var tween := create_tween()
+	for hex in path.slice(1):
+		tween.tween_property(view, "position", Hex.to_pixel(hex, HEX_SIZE), STEP_TIME)
+	await tween.finished
+
+
+## 相手に向かって踏み込み、当たった瞬間にHPの表示を減らして元の位置に戻る。
+func _animate_attack(attacker: UnitView, target: UnitView, damage: int, hp_after: int) -> void:
+	var origin := attacker.position
+	var lunge := create_tween()
+	lunge.tween_property(attacker, "position", origin.lerp(target.position, 0.4), 0.08)
+	await lunge.finished
+	target.show_hp(hp_after)
+	_spawn_damage_number(target.position, damage)
+	target.modulate = Color(2.5, 2.5, 2.5)
+	var recover := create_tween().set_parallel()
+	recover.tween_property(attacker, "position", origin, 0.14)
+	recover.tween_property(target, "modulate", Color.WHITE, 0.25)
+	await recover.finished
+
+
+func _animate_death(view: UnitView) -> void:
+	var tween := create_tween()
+	tween.tween_property(view, "modulate:a", 0.0, 0.25)
+	await tween.finished
+
+
+## ダメージの数字を出す。浮かび上がりながら消える。
+func _spawn_damage_number(at: Vector2, damage: int) -> void:
+	var label := Label.new()
+	label.text = "-%d" % damage
+	label.position = at + Vector2(-12.0, -52.0)
+	label.add_theme_font_size_override("font_size", 24)
+	label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3))
+	_effects.add_child(label)
+	var tween := label.create_tween().set_parallel()
+	tween.tween_property(label, "position:y", label.position.y - 28.0, 0.6)
+	tween.tween_property(label, "modulate:a", 0.0, 0.6)
+	tween.chain().tween_callback(label.queue_free)
 
 
 func _refresh() -> void:
@@ -137,6 +239,8 @@ func _refresh() -> void:
 		_mode_button.text = "カード制に切替"
 	_turn_label.text = "ターン %d" % battle.turn
 	_end_turn_button.disabled = not ongoing
+	_mode_button.disabled = false
+	_restart_button.disabled = false
 	_result_label.visible = not ongoing
 	_result_label.text = "勝利" if battle.outcome() == Battle.Outcome.VICTORY else "敗北"
 
