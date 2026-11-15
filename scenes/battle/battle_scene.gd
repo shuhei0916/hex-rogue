@@ -44,7 +44,7 @@ static func create_default_card_turn() -> CardTurn:
 		field.place_unit(Unit.new(Unit.Team.ENEMY, 5, 2), hex)
 	var rng := RandomNumberGenerator.new()
 	rng.randomize()
-	return CardTurn.new(Battle.new(field), Deck.new(CardTurn.starter_cards(), rng))
+	return CardTurn.new(Battle.new(field), Deck.new(CardLibrary.starter_cards(), rng))
 
 
 func _ready() -> void:

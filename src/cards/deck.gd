@@ -37,8 +37,4 @@ func discard_hand() -> void:
 
 
 func _shuffle(pile: Array[Card]) -> void:
-	for i in range(pile.size() - 1, 0, -1):
-		var j := _rng.randi_range(0, i)
-		var swapped := pile[i]
-		pile[i] = pile[j]
-		pile[j] = swapped
+	Shuffle.in_place(pile, _rng)
