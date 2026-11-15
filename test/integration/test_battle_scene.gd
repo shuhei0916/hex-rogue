@@ -47,15 +47,6 @@ func test_ユニットごとに表示が作られマスの位置に置かれる(
 	assert_eq(scene.view_of(enemy).position, _pixel(Vector2i(1, 0)))
 
 
-func test_手番を渡さずに起動すると既定の戦闘がカードで始まる():
-	var default_scene: BattleScene = BattleSceneScene.instantiate()
-	add_child_autofree(default_scene)
-
-	assert_not_null(default_scene.card_turn)
-	assert_eq(default_scene.battle.outcome(), Battle.Outcome.ONGOING)
-	assert_gt(default_scene.get_node("Units").get_child_count(), 1)
-
-
 func test_手札の枚数ぶんカードが並ぶ():
 	assert_eq(_hand().get_child_count(), 4)
 
@@ -186,29 +177,54 @@ func test_倒した敵の表示は消える():
 	assert_null(scene.view_of(enemy))
 
 
-func test_戦闘中は結果を表示しない():
-	assert_false(scene.get_node("Hud/ResultLabel").visible)
+func test_戦闘中は決着を知らせない():
+	watch_signals(scene)
+
+	scene.select_card(attack_card)
+	scene.click_hex(Vector2i(1, 0))
+
+	assert_signal_not_emitted(scene, "battle_finished")
 
 
-func test_勝利すると結果を表示する():
+func test_勝利すると決着を知らせる():
+	watch_signals(scene)
 	enemy.take_damage(3)
 	scene.select_card(attack_card)
 
 	scene.click_hex(Vector2i(1, 0))
 
-	assert_true(scene.get_node("Hud/ResultLabel").visible)
+	assert_signal_emitted_with_parameters(scene, "battle_finished", [Battle.Outcome.VICTORY])
 
 
-func test_やり直しボタンを押すと新しい戦闘が始まる():
-	var old_battle := scene.battle
+func test_敗北すると決着を知らせる():
+	watch_signals(scene)
+	player.take_damage(9)
 
-	scene.get_node("Hud/RestartButton").pressed.emit()
+	scene.end_turn()
 
-	assert_ne(scene.battle, old_battle)
-	assert_eq(scene.battle.turn, 1)
-	assert_null(scene.view_of(player))
-	assert_eq(scene.get_node("Units").get_child_count(), scene.battle.field.units().size())
-	assert_eq(_hand().get_child_count(), CardTurn.HAND_SIZE)
+	assert_signal_emitted_with_parameters(scene, "battle_finished", [Battle.Outcome.DEFEAT])
+
+
+func test_決着は一度だけ知らせる():
+	watch_signals(scene)
+	enemy.take_damage(3)
+	scene.select_card(attack_card)
+	scene.click_hex(Vector2i(1, 0))
+
+	scene.refresh()
+
+	assert_signal_emit_count(scene, "battle_finished", 1)
+
+
+func test_決着後は手札のカードとターン終了が押せない():
+	enemy.take_damage(3)
+	scene.select_card(attack_card)
+
+	scene.click_hex(Vector2i(1, 0))
+
+	assert_true(scene.get_node("Hud/EndTurnButton").disabled)
+	for button: Button in _hand().get_children():
+		assert_true(button.disabled)
 
 
 func test_敵にマウスを乗せていなければ攻撃されうるマスも予定も示さない():

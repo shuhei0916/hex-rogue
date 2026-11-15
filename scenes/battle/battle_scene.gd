@@ -4,12 +4,14 @@ extends Node2D
 
 ## 行動のアニメーションをすべて再生し終えた。
 signal animations_finished
+## 戦闘が決着し、その結果を画面に出し終えた。1戦につき一度だけ知らせる。
+signal battle_finished(outcome: Battle.Outcome)
 
 const HEX_SIZE := 40.0
 ## 1マス歩くのにかける秒数。
 const STEP_TIME := 0.12
 
-## 表示する戦闘の、主人公の手番。起動前に入れておく。入れなければ既定の戦闘を始める。
+## 表示する戦闘の、主人公の手番。シーンツリーに入れる前に必ず入れておく。
 var card_turn: CardTurn
 var battle: Battle
 var selected_card: Card
@@ -21,6 +23,7 @@ var is_animating := false
 var _animations: Array[Callable] = []
 var _views: Dictionary[Unit, UnitView] = {}
 var _hovered := Vector2i.ZERO
+var _finish_notified := false
 
 @onready var _board: BoardView = $Board
 @onready var _units: Node2D = $Units
@@ -28,30 +31,18 @@ var _hovered := Vector2i.ZERO
 @onready var _energy_label: Label = $Hud/EnergyLabel
 @onready var _turn_label: Label = $Hud/TurnLabel
 @onready var _intent_label: Label = $Hud/IntentLabel
-@onready var _result_label: Label = $Hud/ResultLabel
 @onready var _end_turn_button: Button = $Hud/EndTurnButton
-@onready var _restart_button: Button = $Hud/RestartButton
 @onready var _hand: HBoxContainer = $Hud/Hand
 
 
-## 動作確認用の固定配置の戦闘を、試作用の初期デッキで始める。
-static func create_default_card_turn() -> CardTurn:
-	var field := Battlefield.hexagon(4)
-	for wall in [Vector2i(1, -2), Vector2i(1, 1), Vector2i(-2, 1)]:
-		field.set_terrain(wall, Battlefield.Terrain.WALL)
-	field.place_unit(Unit.new(Unit.Team.PLAYER, 12, 3), Vector2i(-3, 1))
-	for hex in [Vector2i(3, -3), Vector2i(4, -2), Vector2i(2, 2)]:
-		field.place_unit(Unit.new(Unit.Team.ENEMY, 5, 2), hex)
-	var rng := RandomNumberGenerator.new()
-	rng.randomize()
-	return CardTurn.new(Battle.new(field), Deck.new(CardLibrary.starter_cards(), rng))
-
-
 func _ready() -> void:
+	battle = card_turn.battle
 	_board.hex_size = HEX_SIZE
 	_end_turn_button.pressed.connect(end_turn)
-	_restart_button.pressed.connect(restart)
-	_start(card_turn if card_turn != null else create_default_card_turn())
+	battle.unit_moved.connect(_on_unit_moved)
+	battle.unit_attacked.connect(_on_unit_attacked)
+	battle.unit_died.connect(_on_unit_died)
+	refresh()
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -92,7 +83,7 @@ func select_card(card: Card) -> void:
 		return
 	var selectable := card.cost <= card_turn.energy
 	selected_card = card if selectable and selected_card != card else null
-	_refresh()
+	refresh()
 
 
 func end_turn() -> void:
@@ -104,26 +95,9 @@ func end_turn() -> void:
 	_show_result()
 
 
-## 既定の戦闘を最初から始める。
-func restart() -> void:
-	if is_animating:
-		return
-	_start(create_default_card_turn())
-
-
 ## ユニットの表示を返す。戦場にいなければ null。
 func view_of(unit: Unit) -> UnitView:
 	return _views.get(unit)
-
-
-func _start(p_card_turn: CardTurn) -> void:
-	card_turn = p_card_turn
-	battle = card_turn.battle
-	selected_card = null
-	battle.unit_moved.connect(_on_unit_moved)
-	battle.unit_attacked.connect(_on_unit_attacked)
-	battle.unit_died.connect(_on_unit_died)
-	_refresh()
 
 
 func _on_unit_moved(unit: Unit, path: Array[Vector2i]) -> void:
@@ -146,19 +120,18 @@ func _on_unit_died(unit: Unit) -> void:
 func _show_result() -> void:
 	if not animations_enabled or _animations.is_empty():
 		_animations.clear()
-		_refresh()
+		refresh()
 		return
 	is_animating = true
 	_board.reachable.clear()
 	_refresh_intent()
 	_board.queue_redraw()
 	_refresh_hand(false)
-	for button: Button in [_end_turn_button, _restart_button]:
-		button.disabled = true
+	_end_turn_button.disabled = true
 	while not _animations.is_empty():
 		await _animations.pop_front().call()
 	is_animating = false
-	_refresh()
+	refresh()
 	animations_finished.emit()
 
 
@@ -207,7 +180,8 @@ func _spawn_damage_number(at: Vector2, damage: int) -> void:
 	tween.chain().tween_callback(label.queue_free)
 
 
-func _refresh() -> void:
+## 戦闘のいまの状態を画面に反映する。
+func refresh() -> void:
 	_sync_unit_views()
 	var ongoing := battle.outcome() == Battle.Outcome.ONGOING
 	_board.field = battle.field
@@ -223,9 +197,9 @@ func _refresh() -> void:
 	]
 	_turn_label.text = "ターン %d" % battle.turn
 	_end_turn_button.disabled = not ongoing
-	_restart_button.disabled = false
-	_result_label.visible = not ongoing
-	_result_label.text = "勝利" if battle.outcome() == Battle.Outcome.VICTORY else "敗北"
+	if not ongoing and not _finish_notified:
+		_finish_notified = true
+		battle_finished.emit(battle.outcome())
 
 
 ## マウスを乗せている敵の、攻撃されうるマスと次の手番の予定を盤面と文に出す。
