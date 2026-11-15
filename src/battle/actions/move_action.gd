@@ -23,4 +23,6 @@ func can_perform(battle: Battle) -> bool:
 
 
 func apply(battle: Battle) -> void:
+	var path := battle.field.find_path(actor.position, destination)
 	battle.field.place_unit(actor, destination)
+	battle.unit_moved.emit(actor, path)

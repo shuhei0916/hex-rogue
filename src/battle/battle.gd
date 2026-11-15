@@ -2,6 +2,12 @@ class_name Battle
 extends RefCounted
 ## 1戦の進行役。手番・行動ポイント・勝敗を管理し、行動を戦場に適用する。
 
+## ユニットが path（出発マスと到着マスを含む）をたどって移動した。
+signal unit_moved(unit: Unit, path: Array[Vector2i])
+## attacker が target に damage を与え、target のHPが hp_after になった。
+signal unit_attacked(attacker: Unit, target: Unit, damage: int, hp_after: int)
+signal unit_died(unit: Unit)
+
 enum Outcome { ONGOING, VICTORY, DEFEAT }
 
 const AP_PER_TURN := 3
@@ -90,3 +96,4 @@ func _remove_dead_units() -> void:
 	for unit in field.units():
 		if not unit.is_alive():
 			field.remove_unit(unit)
+			unit_died.emit(unit)
