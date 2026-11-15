@@ -37,11 +37,11 @@ func test_手札の枚数ぶんカードが並ぶ():
 	assert_eq(_hand().get_child_count(), 4)
 
 
-func test_カードには名前と効果が書かれる():
+func test_カードには名前とコストと効果が書かれる():
 	var texts := _hand().get_children().map(func(button: Button) -> String: return button.text)
 
-	assert_has(texts, "歩く\n移動 2")
-	assert_has(texts, "斬る\n攻撃 3")
+	assert_has(texts, "歩く (1)\n移動 2")
+	assert_has(texts, "斬る (1)\n攻撃 3")
 
 
 func test_カードを選ぶ前は移動できるマスを示さない():
@@ -96,11 +96,23 @@ func test_選んだカードをもう一度選ぶと選択が外れる():
 	assert_null(scene.selected_card)
 
 
-func test_残りの使える枚数を表示する():
+func test_残りのマナを表示する():
 	scene.select_card(move_card)
 	scene.click_hex(Vector2i(0, 2))
 
-	assert_string_contains(scene.get_node("Hud/ApLabel").text, "あと 1 枚")
+	assert_string_contains(scene.get_node("Hud/ApLabel").text, "マナ: 2 / 3")
+
+
+func test_マナが足りないカードは押せない():
+	var heavy := Card.new("強打", Card.Kind.ATTACK, 6, 4)
+	deck.hand.append(heavy)
+
+	scene.select_card(move_card)
+	scene.select_card(move_card)
+
+	var buttons := _hand().get_children().filter(func(button: Button) -> bool: return button.disabled)
+	assert_eq(buttons.size(), 1)
+	assert_string_contains(buttons[0].text, "強打")
 
 
 func test_ターン終了で手札を引き直す():

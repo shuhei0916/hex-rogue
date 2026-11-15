@@ -8,12 +8,15 @@ var title: String
 var kind: Kind
 ## 移動なら歩ける歩数、攻撃なら与えるダメージ。
 var value: int
+## 使うのに必要なマナ。
+var cost: int
 
 
-func _init(p_title: String, p_kind: Kind, p_value: int) -> void:
+func _init(p_title: String, p_kind: Kind, p_value: int, p_cost := 1) -> void:
 	title = p_title
 	kind = p_kind
 	value = p_value
+	cost = p_cost
 
 
 func description() -> String:

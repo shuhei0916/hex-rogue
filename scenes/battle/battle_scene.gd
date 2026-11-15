@@ -80,7 +80,8 @@ func click_hex(hex: Vector2i) -> void:
 
 ## 手札のカードを選ぶ。選んでいるカードをもう一度選ぶと選択を外す。
 func select_card(card: Card) -> void:
-	selected_card = null if selected_card == card else card
+	var selectable := card_turn != null and card.cost <= card_turn.energy
+	selected_card = card if selectable and selected_card != card else null
 	_refresh()
 
 
@@ -126,8 +127,9 @@ func _refresh() -> void:
 	_board.queue_redraw()
 	_refresh_hand(ongoing)
 	if card_turn != null:
-		_ap_label.text = "カード: あと %d 枚 (山札 %d / 捨て札 %d)" % [
-			card_turn.plays_left, card_turn.deck.draw_pile.size(), card_turn.deck.discard_pile.size(),
+		_ap_label.text = "マナ: %d / %d (山札 %d / 捨て札 %d)" % [
+			card_turn.energy, CardTurn.ENERGY_PER_TURN,
+			card_turn.deck.draw_pile.size(), card_turn.deck.discard_pile.size(),
 		]
 		_mode_button.text = "行動ポイント制に切替"
 	else:
@@ -143,7 +145,7 @@ func _refresh() -> void:
 func _move_range() -> int:
 	if card_turn == null:
 		return battle.ap
-	if selected_card != null and selected_card.kind == Card.Kind.MOVE and card_turn.plays_left > 0:
+	if selected_card != null and selected_card.kind == Card.Kind.MOVE:
 		return selected_card.value
 	return 0
 
@@ -156,13 +158,12 @@ func _refresh_hand(ongoing: bool) -> void:
 		return
 	for card in card_turn.deck.hand:
 		var button := Button.new()
-		button.text = "%s
-%s" % [card.title, card.description()]
+		button.text = "%s (%d)\n%s" % [card.title, card.cost, card.description()]
 		button.custom_minimum_size = Vector2(110.0, 72.0)
 		button.focus_mode = Control.FOCUS_NONE
 		button.toggle_mode = true
 		button.button_pressed = card == selected_card
-		button.disabled = not ongoing or card_turn.plays_left <= 0
+		button.disabled = not ongoing or card.cost > card_turn.energy
 		button.pressed.connect(select_card.bind(card))
 		_hand.add_child(button)
 

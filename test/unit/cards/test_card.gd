@@ -56,6 +56,11 @@ func test_カードによる行動は行動ポイントを使わない():
 	assert_eq(battle.ap, Battle.AP_PER_TURN)
 
 
+func test_コストを指定しなければ1になる():
+	assert_eq(Card.new("歩く", Card.Kind.MOVE, 2).cost, 1)
+	assert_eq(Card.new("走る", Card.Kind.MOVE, 4, 2).cost, 2)
+
+
 func test_カードの説明は種類と値を表す():
 	assert_eq(Card.new("強打", Card.Kind.ATTACK, 5).description(), "攻撃 5")
 	assert_eq(Card.new("疾走", Card.Kind.MOVE, 3).description(), "移動 3")
