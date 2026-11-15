@@ -85,3 +85,48 @@ func test_移動可能範囲は壁を含まず迂回の歩数で数える():
 
 	assert_does_not_have(reachable, Vector2i(1, 0))
 	assert_eq(reachable[Vector2i(2, -1)], 4)
+
+
+func test_配置したユニットをマスから取得できる():
+	var unit := Unit.new(Unit.Team.PLAYER, 10, 3)
+
+	field.place_unit(unit, Vector2i(1, 0))
+
+	assert_eq(field.unit_at(Vector2i(1, 0)), unit)
+	assert_eq(unit.position, Vector2i(1, 0))
+	assert_null(field.unit_at(Vector2i(0, 0)))
+
+
+func test_ユニットを動かすと元のマスは空く():
+	var unit := Unit.new(Unit.Team.PLAYER, 10, 3)
+	field.place_unit(unit, Vector2i(1, 0))
+
+	field.place_unit(unit, Vector2i(2, 0))
+
+	assert_null(field.unit_at(Vector2i(1, 0)))
+	assert_eq(field.unit_at(Vector2i(2, 0)), unit)
+
+
+func test_取り除いたユニットのマスは空く():
+	var unit := Unit.new(Unit.Team.ENEMY, 10, 3)
+	field.place_unit(unit, Vector2i(1, 0))
+
+	field.remove_unit(unit)
+
+	assert_null(field.unit_at(Vector2i(1, 0)))
+	assert_eq(field.units(), [])
+
+
+func test_ユニットのいるマスは通行できない():
+	field.place_unit(Unit.new(Unit.Team.ENEMY, 10, 3), Vector2i(1, 0))
+
+	assert_false(field.is_walkable(Vector2i(1, 0)))
+
+
+func test_経路はユニットのいるマスを避ける():
+	for blocked in [Vector2i(0, 0), Vector2i(0, -1), Vector2i(0, 1)]:
+		field.place_unit(Unit.new(Unit.Team.ENEMY, 10, 3), blocked)
+
+	var path := field.find_path(Vector2i(-1, 0), Vector2i(1, 0))
+
+	assert_gt(path.size(), 3)

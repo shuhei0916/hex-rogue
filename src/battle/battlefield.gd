@@ -5,6 +5,7 @@ extends RefCounted
 enum Terrain { FLOOR, WALL }
 
 var _terrain: Dictionary[Vector2i, Terrain] = {}
+var _units: Dictionary[Vector2i, Unit] = {}
 
 
 ## 中心から radius マス以内がすべて床の六角形の戦場を作る。
@@ -27,8 +28,29 @@ func cells() -> Array[Vector2i]:
 	return _terrain.keys()
 
 
+## 床で、かつユニットがいなければ通行できる。
 func is_walkable(hex: Vector2i) -> bool:
-	return _terrain.get(hex, Terrain.WALL) == Terrain.FLOOR
+	return _terrain.get(hex, Terrain.WALL) == Terrain.FLOOR and not _units.has(hex)
+
+
+## ユニットを hex に置く。すでに戦場にいるユニットなら移動になる。
+func place_unit(unit: Unit, hex: Vector2i) -> void:
+	remove_unit(unit)
+	unit.position = hex
+	_units[hex] = unit
+
+
+func remove_unit(unit: Unit) -> void:
+	if _units.get(unit.position) == unit:
+		_units.erase(unit.position)
+
+
+func unit_at(hex: Vector2i) -> Unit:
+	return _units.get(hex)
+
+
+func units() -> Array[Unit]:
+	return _units.values()
 
 
 ## from から to までの最短経路を両端を含めて返す。たどり着けなければ空。
