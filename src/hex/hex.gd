@@ -49,3 +49,14 @@ static func round_fractional(fractional: Vector2) -> Vector2i:
 	elif dr > ds:
 		r = -q - s
 	return Vector2i(int(q), int(r))
+
+
+## ヘックスの中心の画面座標を返す。頂点が上の向きで、size は中心から頂点までの長さ。
+static func to_pixel(hex: Vector2i, size: float) -> Vector2:
+	return Vector2(size * sqrt(3.0) * (hex.x + hex.y / 2.0), size * 1.5 * hex.y)
+
+
+static func from_pixel(pixel: Vector2, size: float) -> Vector2i:
+	var r := pixel.y / (size * 1.5)
+	var q := pixel.x / (size * sqrt(3.0)) - r / 2.0
+	return round_fractional(Vector2(q, r))

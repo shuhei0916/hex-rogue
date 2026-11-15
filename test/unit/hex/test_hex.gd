@@ -1,13 +1,5 @@
 extends GutTest
 
-# テストリスト
-# [ ] 隣接する6マスを返す
-# [ ] 2マス間の距離を返す
-# [ ] 半径N以内のマスを返す
-# [ ] 2マスを結ぶ直線上のマスを返す
-# [ ] ヘックス座標を画面座標に変換する（頂点が上の向き）
-# [ ] 画面座標をヘックス座標に変換する
-
 
 func test_原点に隣接する6マスを返す():
 	var neighbors := Hex.neighbors(Vector2i(0, 0))
@@ -73,3 +65,31 @@ func test_斜めの直線は両端を含み隣接マスでつながる():
 	assert_eq(line.back(), to)
 	for i in range(1, line.size()):
 		assert_eq(Hex.distance(line[i - 1], line[i]), 1)
+
+
+func test_原点のヘックスは画面座標の原点になる():
+	assert_eq(Hex.to_pixel(Vector2i(0, 0), 32.0), Vector2.ZERO)
+
+
+func test_q方向の隣は横に幅ひとつ分ずれる():
+	var pixel := Hex.to_pixel(Vector2i(1, 0), 32.0)
+
+	assert_almost_eq(pixel, Vector2(32.0 * sqrt(3.0), 0.0), Vector2(0.001, 0.001))
+
+
+func test_r方向の隣は半マス右の一段下にずれる():
+	var pixel := Hex.to_pixel(Vector2i(0, 1), 32.0)
+
+	assert_almost_eq(pixel, Vector2(16.0 * sqrt(3.0), 48.0), Vector2(0.001, 0.001))
+
+
+func test_ヘックス中心の画面座標は元のヘックスに戻る():
+	for hex in Hex.within(Vector2i(0, 0), 3):
+		assert_eq(Hex.from_pixel(Hex.to_pixel(hex, 32.0), 32.0), hex)
+
+
+func test_中心から少しずれた画面座標も同じヘックスになる():
+	var center := Hex.to_pixel(Vector2i(2, -1), 32.0)
+
+	assert_eq(Hex.from_pixel(center + Vector2(10.0, -12.0), 32.0), Vector2i(2, -1))
+	assert_eq(Hex.from_pixel(center + Vector2(-20.0, 5.0), 32.0), Vector2i(2, -1))
