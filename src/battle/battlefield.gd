@@ -24,6 +24,10 @@ func has_cell(hex: Vector2i) -> bool:
 	return _terrain.has(hex)
 
 
+func terrain_at(hex: Vector2i) -> Terrain:
+	return _terrain[hex]
+
+
 func cells() -> Array[Vector2i]:
 	return _terrain.keys()
 
