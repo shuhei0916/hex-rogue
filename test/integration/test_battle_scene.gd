@@ -91,3 +91,38 @@ func test_盤面に移動できるマスと攻撃されうるマスを渡す():
 	assert_has(board.reachable, Vector2i(3, -1))
 	assert_does_not_have(board.reachable, Vector2i(4, 0))
 	assert_has(board.threatened, Vector2i(2, 0))
+
+
+func test_行動ポイント制では手札を表示しない():
+	assert_eq(scene.get_node("Hud/Hand").get_child_count(), 0)
+
+
+func test_方式切替ボタンを押すとカード制で新しい戦闘が始まる():
+	var old_battle := scene.battle
+
+	scene.get_node("Hud/ModeButton").pressed.emit()
+
+	assert_ne(scene.battle, old_battle)
+	assert_not_null(scene.card_turn)
+	assert_eq(scene.get_node("Hud/Hand").get_child_count(), CardTurn.HAND_SIZE)
+
+
+func test_方式切替ボタンを2回押すと行動ポイント制に戻る():
+	scene.get_node("Hud/ModeButton").pressed.emit()
+	scene.get_node("Hud/ModeButton").pressed.emit()
+
+	assert_null(scene.card_turn)
+	assert_eq(scene.get_node("Hud/Hand").get_child_count(), 0)
+
+
+func test_やり直しボタンを押すと新しい戦闘が始まる():
+	scene.click_hex(Vector2i(1, 0))
+	scene.get_node("Hud/EndTurnButton").pressed.emit()
+	var old_battle := scene.battle
+
+	scene.get_node("Hud/RestartButton").pressed.emit()
+
+	assert_ne(scene.battle, old_battle)
+	assert_eq(scene.battle.turn, 1)
+	assert_null(scene.view_of(player))
+	assert_eq(scene.get_node("Units").get_child_count(), scene.battle.field.units().size())

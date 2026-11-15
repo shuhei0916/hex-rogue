@@ -24,7 +24,7 @@ offset_bottom = 40.0
 [node name="ApLabel" type="Label" parent="Hud"]
 offset_left = 16.0
 offset_top = 44.0
-offset_right = 216.0
+offset_right = 416.0
 offset_bottom = 72.0
 
 [node name="EndTurnButton" type="Button" parent="Hud"]
@@ -32,7 +32,38 @@ offset_left = 16.0
 offset_top = 84.0
 offset_right = 176.0
 offset_bottom = 124.0
+focus_mode = 0
 text = "ターン終了 (Enter)"
+
+[node name="RestartButton" type="Button" parent="Hud"]
+offset_left = 16.0
+offset_top = 132.0
+offset_right = 176.0
+offset_bottom = 172.0
+focus_mode = 0
+text = "やり直す"
+
+[node name="ModeButton" type="Button" parent="Hud"]
+offset_left = 16.0
+offset_top = 180.0
+offset_right = 216.0
+offset_bottom = 220.0
+focus_mode = 0
+text = "カード制に切替"
+
+[node name="Hand" type="HBoxContainer" parent="Hud"]
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -300.0
+offset_top = -96.0
+offset_right = 300.0
+offset_bottom = -16.0
+grow_horizontal = 2
+grow_vertical = 0
+alignment = 1
 
 [node name="ResultLabel" type="Label" parent="Hud"]
 visible = false
